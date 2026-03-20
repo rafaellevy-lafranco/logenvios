@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>LogEnvios</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+      --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+      --accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;
+      --mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    .screen{display:none;flex-direction:column;height:100vh;height:100dvh;}
+    .screen.active{display:flex;}
+
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:52px;}
+    .header-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+    .header-title{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .header-sub{font-size:11px;color:var(--text2);font-family:var(--mono);}
+    .header-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--text2);font-family:var(--mono);white-space:nowrap;flex-shrink:0;}
+    .btn-back{background:transparent;border:1px solid var(--border);color:var(--accent);font-size:13px;font-family:var(--sans);cursor:pointer;padding:6px 10px;border-radius:8px;white-space:nowrap;flex-shrink:0;}
+
+    .select-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
+    .select-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-family:var(--mono);}
+    .logistica-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+    .logistica-card.selected{border-color:var(--accent);background:rgba(88,166,255,0.06);}
+    .logistica-name{font-size:16px;font-weight:500;}
+    .logistica-type{font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text2);}
+    .logistica-type.qr{border-color:#3fb95044;color:var(--green);background:rgba(63,185,80,0.08);}
+    .logistica-type.barras{border-color:#58a6ff44;color:var(--accent);background:rgba(88,166,255,0.08);}
+    .select-footer{padding:12px 14px 24px;flex-shrink:0;}
+    .btn-primary{background:var(--accent);color:#0d1117;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;font-family:var(--sans);cursor:pointer;width:100%;}
+    .btn-primary:disabled{opacity:0.3;cursor:not-allowed;}
+
+    .scan-body{flex:1;display:flex;flex-direction:column;padding:12px;gap:10px;overflow:hidden;}
+    .counter-block{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px;text-align:center;flex-shrink:0;}
+    .counter-num{font-size:80px;font-weight:700;font-family:var(--mono);color:var(--accent);line-height:1;transition:transform 0.1s;}
+    .counter-num.bump{transform:scale(1.1);}
+    .counter-label{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono);}
+
+    .scan-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px;font-family:var(--mono);color:var(--text);outline:none;flex-shrink:0;}
+    .scan-input:focus{border-color:var(--accent);}
+    .scan-input.ok{border-color:var(--green);}
+    .scan-input.err{border-color:var(--red);}
+
+    .last-event{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:52px;}
+    .event-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--text3);}
+    .event-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(63,185,80,0.5);}
+    .event-dot.dup{background:var(--red);box-shadow:0 0 8px rgba(248,81,73,0.5);}
+    .event-code{font-family:var(--mono);font-size:13px;word-break:break-all;}
+    .event-label{font-size:11px;color:var(--text2);margin-top:2px;}
+
+    .scan-list-wrap{flex:1;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
+    .scan-list-hdr{padding:8px 14px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2);font-family:var(--mono);display:flex;justify-content:space-between;position:sticky;top:0;background:var(--surface);}
+    .scan-row{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;}
+    .scan-row:last-child{border-bottom:none;}
+    .scan-row.dup{color:var(--text3);}
+    .row-num{color:var(--text3);min-width:22px;font-size:10px;}
+    .row-code{flex:1;word-break:break-all;}
+    .dup-badge{font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(248,81,73,0.1);color:var(--red);border:1px solid rgba(248,81,73,0.3);flex-shrink:0;}
+
+    .scan-footer{padding:0 0 12px;flex-shrink:0;}
+    .btn-danger{background:transparent;color:var(--green);border:1px solid rgba(63,185,80,0.4);border-radius:12px;padding:15px;font-size:15px;font-weight:700;font-family:var(--sans);cursor:pointer;width:100%;}
+
+    .summary-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;}
+    .summary-hero{background:var(--surface);border:1px solid var(--green);border-radius:16px;padding:22px;text-align:center;}
+    .summary-num{font-size:64px;font-weight:700;font-family:var(--mono);color:var(--green);line-height:1;}
+    .summary-label{font-size:12px;color:var(--text2);margin-top:6px;}
+    .summary-logistica{font-size:14px;font-weight:500;margin-top:4px;}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+    .stat-label{font-size:11px;color:var(--text2);font-family:var(--mono);}
+    .stat-value{font-size:28px;font-weight:700;font-family:var(--mono);margin-top:4px;}
+    .stat-value.red{color:var(--red);}
+    .drive-status{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);font-family:var(--mono);display:flex;align-items:center;gap:8px;}
+    .drive-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0;}
+    .drive-dot.ok{background:var(--green);}
+    .drive-dot.err{background:var(--red);}
+    .drive-dot.spin{background:var(--orange);animation:pulse 1s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+    .summary-footer{padding:0 14px 24px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;}
+    .btn-secondary{background:transparent;color:var(--accent);border:1px solid rgba(88,166,255,0.4);border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;}
+    .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:12px;padding:13px;font-size:14px;font-family:var(--sans);cursor:pointer;width:100%;}
+
+    .hist-list{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
+    .hist-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;}
+    .hist-row{display:flex;justify-content:space-between;align-items:center;}
+    .hist-logistica{font-size:15px;font-weight:500;}
+    .hist-count{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--accent);}
+    .hist-date{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:4px;}
+    .empty-state{text-align:center;color:var(--text2);padding:60px 20px;font-size:14px;}
+
+    .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--red);color:white;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:700;opacity:0;transition:opacity 0.2s,transform 0.2s;pointer-events:none;z-index:100;white-space:nowrap;max-width:92vw;text-align:center;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    .toast.ok{background:var(--green);color:#0d1117;}
+
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:150;align-items:flex-end;padding:16px;}
+    .overlay.show{display:flex;}
+    .overlay-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;width:100%;max-width:420px;margin:0 auto;}
+    .overlay-title{font-size:16px;font-weight:700;margin-bottom:8px;}
+    .overlay-msg{font-size:13px;color:var(--text2);margin-bottom:20px;}
+    .overlay-btns{display:flex;gap:10px;}
+    .ov-cancel{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;color:var(--text2);font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;}
+    .ov-confirm{flex:1;background:var(--red);border:none;border-radius:10px;padding:14px;color:white;font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;}
+    .ov-blue{flex:1;background:var(--accent);border:none;border-radius:10px;padding:14px;color:#0d1117;font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;}
+  </style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- SELECT -->
+<div class="screen active" id="screenSelect">
+  <div class="header">
+    <div class="header-left"><div class="header-title">LogEnvios</div></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="showHistory()" style="background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:12px;font-family:var(--mono);">historial</button>
+      <div class="header-badge" id="dateBadge"></div>
+    </div>
+  </div>
+  <div class="select-body">
+    <div class="select-label">Seleccioná la logística</div>
+    <div class="logistica-card" onclick="selectLog(this,'Colecta')"><span class="logistica-name">Colecta</span><span class="logistica-type barras">barras</span></div>
+    <div class="logistica-card" onclick="selectLog(this,'Flex')"><span class="logistica-name">Flex</span><span class="logistica-type qr">QR</span></div>
+    <div class="logistica-card" onclick="selectLog(this,'Envio Pack')"><span class="logistica-name">Envio Pack</span><span class="logistica-type barras">barras</span></div>
+    <div class="logistica-card" onclick="selectLog(this,'Moova')"><span class="logistica-name">Moova</span><span class="logistica-type qr">QR</span></div>
+    <div class="logistica-card" onclick="selectLog(this,'OCA')"><span class="logistica-name">OCA</span><span class="logistica-type qr">QR</span></div>
+  </div>
+  <div class="select-footer">
+    <button class="btn-primary" id="btnIniciar" onclick="iniciar()" disabled>Iniciar escaneo</button>
+  </div>
+</div>
+
+<!-- SCAN -->
+<div class="screen" id="screenScan">
+  <div class="header">
+    <div class="header-left">
+      <button class="btn-back" onclick="pedirVolver()">← volver</button>
+      <div>
+        <div class="header-title" id="scanTitle">—</div>
+        <div class="header-sub">escaneando</div>
+      </div>
+    </div>
+    <div class="header-badge" id="scanBadge">0</div>
+  </div>
+  <div class="scan-body">
+    <div class="counter-block">
+      <div class="counter-num" id="counterNum">0</div>
+      <div class="counter-label">etiquetas registradas</div>
+    </div>
+    <input id="scanInput" class="scan-input" type="text"
+      placeholder="Listo — escaneá o escribí aquí"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="last-event">
+      <div class="event-dot" id="eventDot"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="event-code" id="eventCode">—</div>
+        <div class="event-label" id="eventLabel">esperando primer escaneo</div>
+      </div>
+    </div>
+    <div class="scan-list-wrap">
+      <div class="scan-list-hdr">
+        <span>código</span>
+        <span id="listCount">0 registradas</span>
+      </div>
+      <div id="scanList"></div>
+    </div>
+  </div>
+  <div class="scan-footer">
+    <button class="btn-danger" onclick="pedirCierre()">Confirmar lectura</button>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="screen" id="screenSummary">
+  <div class="header">
+    <div class="header-left">
+      <div>
+        <div class="header-title">Resumen del evento</div>
+        <div class="header-sub" id="summaryTime">—</div>
+      </div>
+    </div>
+    <div class="header-badge" style="color:var(--green)">cerrado</div>
+  </div>
+  <div class="summary-body">
+    <div class="summary-hero">
+      <div class="summary-num" id="summaryNum">0</div>
+      <div class="summary-label">etiquetas entregadas</div>
+      <div class="summary-logistica" id="summaryLog">—</div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">escaneadas</div><div class="stat-value" id="statTotal">0</div></div>
+      <div class="stat-card"><div class="stat-label">duplicadas</div><div class="stat-value red" id="statDup">0</div></div>
+    </div>
+    <div class="drive-status">
+      <div class="drive-dot spin" id="driveDot"></div>
+      <span id="driveMsg">Guardando en Drive...</span>
+      <button id="driveRetry" onclick="retryDrive()" style="display:none;margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--accent);border-radius:6px;padding:4px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;">reintentar</button>
+    </div>
+  </div>
+  <div class="summary-footer">
+    <button class="btn-secondary" onclick="descargarCSV()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar CSV
+    </button>
+    <button class="btn-secondary" onclick="abrirMail()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 01-2.06 0L2 7"/></svg>
+      Enviar por mail
+    </button>
+    <button class="btn-ghost" onclick="nuevoEvento()">Nuevo evento</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="screenHistory">
+  <div class="header">
+    <div class="header-left">
+      <button class="btn-back" onclick="showScreen('screenSelect')">← volver</button>
+      <div class="header-title">Historial</div>
+    </div>
+    <div class="header-badge" id="histCount">0</div>
+  </div>
+  <div class="hist-list" id="histList"></div>
+</div>
+
+<!-- OV: VOLVER -->
+<div class="overlay" id="ovVolver">
+  <div class="overlay-box">
+    <div class="overlay-title">¿Salir sin guardar?</div>
+    <div class="overlay-msg">Se perderán los escaneos del evento actual.</div>
+    <div class="overlay-btns">
+      <button class="ov-cancel" onclick="hideOv('ovVolver')">Quedarme</button>
+      <button class="ov-confirm" onclick="cancelarEvento()">Salir</button>
+    </div>
+  </div>
+</div>
+
+<!-- OV: CERRAR -->
+<div class="overlay" id="ovCerrar">
+  <div class="overlay-box">
+    <div class="overlay-title">¿Confirmar lectura?</div>
+    <div class="overlay-msg" id="ovCerrarMsg">—</div>
+    <div class="overlay-btns">
+      <button class="ov-cancel" onclick="hideOv('ovCerrar')">Cancelar</button>
+      <button class="ov-confirm" style="background:var(--green);color:#0d1117;" onclick="cerrarEvento()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- OV: RECUPERAR -->
+<div class="overlay" id="ovRecuperar">
+  <div class="overlay-box">
+    <div class="overlay-title">Evento sin cerrar</div>
+    <div class="overlay-msg" id="ovRecMsg">—</div>
+    <div class="overlay-btns">
+      <button class="ov-cancel" onclick="descartarDraft()">Descartar</button>
+      <button class="ov-blue" onclick="recuperarDraft()">Recuperar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const FOLDER = '1HSgbQbYgdYm2sqeF0a-g_lsLOTS9m6F9';
+const MAIL_TO = 'info@lafranco.com.ar';
+const CLIENT_ID = '551110610187-mpa3epgbevnk3122n11sc4aoc8u62bnt.apps.googleusercontent.com';
+
+const PARSERS = {
+  'Colecta':    r => r.trim(),
+  'Flex':       r => { try { const m=r.match(/"id"\s*:\s*"([^"]+)"/); return m?m[1]:JSON.parse(r).id||r.trim(); } catch(e){return r.trim();} },
+  'Envio Pack': r => r.trim().split('-')[0],
+  'Moova':      r => r.trim().split('-')[0],
+  'OCA':        r => r.trim().split('-')[0],
+};
+
+let S = { logistica:null, scans:[], startTime:null, lastEvento:null };
+let selectedCard=null, db=null, scanTimer=null, driveToken=null;
+
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function showOv(id){ document.getElementById(id).classList.add('show'); }
+function hideOv(id){ document.getElementById(id).classList.remove('show'); }
+function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(type?' '+type:''); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2800); }
+function fd(d){ return new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function ft(d){ return new Date(d).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+function fn(log,d){ const p=n=>String(n).padStart(2,'0'); d=new Date(d); return `${log}_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}.csv`; }
+
+// Audio
+let actx;
+function ga(){ if(!actx||actx.state==='closed') actx=new(window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); return actx; }
+function beepOk(){
+  try{
+    const c=ga(), now=c.currentTime;
+    [0,0.18].forEach(d=>{
+      const o=c.createOscillator(), g=c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type='sine'; o.frequency.value=1400;
+      g.gain.setValueAtTime(0.001,now+d); g.gain.linearRampToValueAtTime(0.4,now+d+0.02); g.gain.exponentialRampToValueAtTime(0.001,now+d+0.1);
+      o.start(now+d); o.stop(now+d+0.1);
+    });
+  }catch(e){}
+}
+function beepErr(){
+  // Usar audio real para Android (más compatible que AudioContext)
+  try{
+    const a=document.getElementById('audioErr');
+    if(a){ a.currentTime=0; a.play().catch(()=>{}); }
+  }catch(e){}
+  if(navigator.vibrate) navigator.vibrate([200,80,200]);
+}
+
+// Select
+function selectLog(el,name){ if(selectedCard) selectedCard.classList.remove('selected'); el.classList.add('selected'); selectedCard=el; S.logistica=name; document.getElementById('btnIniciar').disabled=false; }
+
+function iniciar(){
+  if(!S.logistica) return;
+  S.scans=[]; S.startTime=new Date(); S.lastEvento=null;
+  document.getElementById('scanTitle').textContent=S.logistica;
+  document.getElementById('counterNum').textContent='0';
+  document.getElementById('scanBadge').textContent='0';
+  document.getElementById('scanList').innerHTML='';
+  document.getElementById('listCount').textContent='0 registradas';
+  document.getElementById('eventCode').textContent='—';
+  document.getElementById('eventLabel').textContent='esperando primer escaneo';
+  document.getElementById('eventDot').className='event-dot';
+  document.getElementById('scanInput').value='';
+  showScreen('screenScan');
+  setTimeout(()=>document.getElementById('scanInput').focus(), 100);
+}
+
+// Scanner
+const scanInput = document.getElementById('scanInput');
+
+scanInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    clearTimeout(scanTimer);
+    e.preventDefault();
+    const v=scanInput.value.trim();
+    scanInput.value='';
+    if(v.length>0) procesar(v);
+  }
+});
+
+scanInput.addEventListener('input', ()=>{
+  clearTimeout(scanTimer);
+  scanTimer=setTimeout(()=>{
+    const v=scanInput.value.trim();
+    if(v.length>1){ scanInput.value=''; procesar(v); }
+  }, 200);
+});
+
+scanInput.addEventListener('blur', ()=>{
+  setTimeout(()=>{
+    if(document.getElementById('screenScan').classList.contains('active')) scanInput.focus();
+  }, 200);
+});
+
+document.getElementById('screenScan').addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') scanInput.focus();
+});
+
+function procesar(raw){
+  const parser = PARSERS[S.logistica]||(r=>r.trim());
+  const code = parser(raw);
+  if(!code || code.length<1) return;
+
+  const dup = S.scans.some(s=>s.code===code);
+  S.scans.push({code, ts:new Date(), dup, raw});
+  const ok = S.scans.filter(s=>!s.dup).length;
+
+  const el=document.getElementById('counterNum');
+  el.textContent=ok; el.classList.add('bump'); setTimeout(()=>el.classList.remove('bump'),150);
+  document.getElementById('scanBadge').textContent=ok;
+  document.getElementById('eventCode').textContent=code;
+
+  const inp=document.getElementById('scanInput');
+  if(dup){
+    beepErr();
+    document.getElementById('eventDot').className='event-dot dup';
+    document.getElementById('eventLabel').textContent='DUPLICADO — no sumado';
+    inp.classList.add('err'); setTimeout(()=>{ inp.classList.remove('err'); },500);
+    toast('Duplicado: '+code);
+  } else {
+    beepOk();
+    document.getElementById('eventDot').className='event-dot ok';
+    document.getElementById('eventLabel').textContent='ok — sumado';
+    inp.classList.add('ok'); setTimeout(()=>{ inp.classList.remove('ok'); },400);
+  }
+
+  const list=document.getElementById('scanList');
+  const row=document.createElement('div');
+  row.className='scan-row'+(dup?' dup':'');
+  row.innerHTML=`<span class="row-num">${S.scans.length}</span><span class="row-code">${code}</span>${dup?'<span class="dup-badge">DUP</span>':''}`;
+  list.insertBefore(row, list.firstChild);
+  document.getElementById('listCount').textContent=ok+' registradas';
+  guardarDraft();
+}
+
+function pedirVolver(){ if(S.scans.length>0) showOv('ovVolver'); else cancelarEvento(); }
+function cancelarEvento(){ hideOv('ovVolver'); borrarDraft(); S.scans=[]; S.startTime=null; showScreen('screenSelect'); }
+
+function pedirCierre(){
+  const ok=S.scans.filter(s=>!s.dup).length, dup=S.scans.filter(s=>s.dup).length;
+  document.getElementById('ovCerrarMsg').textContent=`${ok} etiquetas registradas${dup>0?`, ${dup} duplicadas`:''}.`;
+  showOv('ovCerrar');
+}
+
+function cerrarEvento(){
+  hideOv('ovCerrar');
+  const now=new Date();
+  const ok=S.scans.filter(s=>!s.dup).length, dup=S.scans.filter(s=>s.dup).length;
+  S.lastEvento={id:Date.now(), logistica:S.logistica, startTime:S.startTime, endTime:now, scans:[...S.scans], countOk:ok, countDup:dup};
+  document.getElementById('summaryNum').textContent=ok;
+  document.getElementById('summaryLog').textContent=S.logistica+' · '+fd(now)+' '+ft(now);
+  document.getElementById('summaryTime').textContent=fd(now)+' '+ft(now);
+  document.getElementById('statTotal').textContent=S.scans.length;
+  document.getElementById('statDup').textContent=dup;
+  setDS('spin','Guardando en Drive...');
+  guardarHist(S.lastEvento);
+  borrarDraft();
+  showScreen('screenSummary');
+  subirDrive(S.lastEvento);
+}
+
+// CSV
+function genCSV(ev){
+  const lines=['Logistica,Codigo,Timestamp,Duplicado'];
+  ev.scans.forEach(s=>lines.push(`${ev.logistica},${s.code},${new Date(s.ts).toISOString()},${s.dup?'SI':'NO'}`));
+  lines.push('','Total registradas,'+ev.countOk,'Total duplicadas,'+ev.countDup);
+  lines.push('Inicio,'+new Date(ev.startTime).toISOString(),'Cierre,'+new Date(ev.endTime).toISOString());
+  return lines.join('\n');
+}
+function descargarCSV(){
+  const ev=S.lastEvento; if(!ev) return;
+  const blob=new Blob([genCSV(ev)],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=fn(ev.logistica,ev.endTime); a.click();
+  URL.revokeObjectURL(url); toast('CSV descargado','ok');
+}
+async function abrirMail(){
+  const ev=S.lastEvento; if(!ev) return;
+  try{
+    toast('Autorizando Gmail...');
+    if(!window.google||!window.google.accounts) throw new Error('Google API no cargada');
+
+    // Pedir token específico para Gmail
+    const token=await new Promise((res,rej)=>{
+      google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID,
+        scope:'https://www.googleapis.com/auth/gmail.send',
+        callback:r=>r.error?rej(new Error(r.error)):res(r.access_token),
+      }).requestAccessToken({prompt:'consent'});
+    });
+
+    toast('Enviando...');
+    const csv=genCSV(ev);
+    const name=fn(ev.logistica,ev.endTime);
+    const subject=`LogEnvios — ${ev.logistica} — ${fd(ev.endTime)} — ${ev.countOk} etiquetas`;
+    const bodyText=`Logística: ${ev.logistica}\nFecha: ${fd(ev.endTime)} ${ft(ev.endTime)}\nEtiquetas entregadas: ${ev.countOk}\nDuplicados: ${ev.countDup}`;
+    const csvB64=btoa(unescape(encodeURIComponent(csv)));
+    const boundary='boundary_'+Date.now();
+    const rawMsg=[
+      `To: ${MAIL_TO}`,
+      `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=UTF-8',
+      '',
+      bodyText,
+      '',
+      `--${boundary}`,
+      `Content-Type: text/csv; name="${name}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${name}"`,
+      '',
+      csvB64,
+      `--${boundary}--`
+    ].join('\r\n');
+
+    const encoded=btoa(unescape(encodeURIComponent(rawMsg)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({raw:encoded})
+    });
+
+    if(r.ok){
+      toast('✓ Mail enviado a '+MAIL_TO,'ok');
+    } else {
+      const e=await r.json().catch(()=>({}));
+      throw new Error(e.error?.message||'HTTP '+r.status);
+    }
+  }catch(e){
+    console.error('Mail error:',e.message);
+    toast('Error: '+e.message.substring(0,50));
+  }
+}
+
+// Drive
+function setDS(st,msg){ document.getElementById('driveDot').className='drive-dot '+st; document.getElementById('driveMsg').textContent=msg; document.getElementById('driveRetry').style.display=st==='err'?'block':'none'; }
+function retryDrive(){ driveToken=null; if(S.lastEvento) subirDrive(S.lastEvento); }
+async function subirDrive(ev){
+  if(!navigator.onLine){ setDS('err','Sin conexión'); return; }
+  try{
+    setDS('spin','Autorizando...');
+    if(!window.google||!window.google.accounts) throw new Error('Google API no cargada');
+    const token=await new Promise((res,rej)=>{
+      google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID, scope:'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/gmail.send',
+        callback:r=>r.error?rej(new Error(r.error)):res(r.access_token),
+      }).requestAccessToken({prompt:'select_account'});
+    });
+    driveToken=token; setDS('spin','Subiendo...');
+    const csv=genCSV(ev), name=fn(ev.logistica,ev.endTime);
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name,parents:[FOLDER],mimeType:'text/csv'})],{type:'application/json'}));
+    form.append('file',new Blob([csv],{type:'text/csv'}));
+    const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{method:'POST',headers:{Authorization:'Bearer '+token},body:form});
+    if(r.ok) setDS('ok','Guardado en Drive ✓ '+name);
+    else{ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||'HTTP '+r.status); }
+  }catch(e){ console.error('Drive:',e); setDS('err','Drive: '+e.message.substring(0,50)); }
+}
+
+function nuevoEvento(){
+  S.logistica=null; S.scans=[]; S.startTime=null;
+  if(selectedCard){ selectedCard.classList.remove('selected'); selectedCard=null; }
+  document.getElementById('btnIniciar').disabled=true;
+  showScreen('screenSelect');
+}
+
+// IndexedDB
+function initDB(){
+  const r=indexedDB.open('LogEnvios',4);
+  r.onupgradeneeded=e=>{ const d=e.target.result; ['eventos','pending'].forEach(n=>{ if(!d.objectStoreNames.contains(n)) d.createObjectStore(n,{keyPath:'id'}); }); };
+  r.onsuccess=e=>{ db=e.target.result; checkDraft(); };
+  r.onerror=e=>console.error('DB:',e);
+}
+function guardarHist(ev){ if(!db) return; db.transaction('eventos','readwrite').objectStore('eventos').put(ev); }
+function guardarDraft(){ if(!db) return; db.transaction('pending','readwrite').objectStore('pending').put({id:'draft',logistica:S.logistica,startTime:S.startTime,scans:S.scans}); }
+function borrarDraft(){ if(!db) return; db.transaction('pending','readwrite').objectStore('pending').delete('draft'); }
+function checkDraft(){
+  if(!db) return;
+  db.transaction('pending','readonly').objectStore('pending').get('draft').onsuccess=e=>{
+    const d=e.target.result;
+    if(!d||!d.scans||d.scans.length===0) return;
+    const ok=d.scans.filter(s=>!s.dup).length;
+    document.getElementById('ovRecMsg').textContent=`Evento de ${d.logistica} con ${ok} etiquetas sin cerrar. ¿Recuperar?`;
+    S._draft=d; showOv('ovRecuperar');
+  };
+}
+function recuperarDraft(){
+  hideOv('ovRecuperar');
+  const d=S._draft; if(!d) return;
+  S.logistica=d.logistica; S.startTime=new Date(d.startTime); S.scans=d.scans.map(s=>({...s,ts:new Date(s.ts)}));
+  document.getElementById('scanTitle').textContent=S.logistica;
+  const ok=S.scans.filter(s=>!S.scans.some||!d.scans.find(x=>x!==s&&x.code===s.code)).length;
+  const okReal=S.scans.filter(s=>!s.dup).length;
+  document.getElementById('counterNum').textContent=okReal;
+  document.getElementById('scanBadge').textContent=okReal;
+  document.getElementById('listCount').textContent=okReal+' registradas';
+  const list=document.getElementById('scanList'); list.innerHTML='';
+  [...S.scans].reverse().forEach((s,i)=>{
+    const row=document.createElement('div'); row.className='scan-row'+(s.dup?' dup':'');
+    row.innerHTML=`<span class="row-num">${S.scans.length-i}</span><span class="row-code">${s.code}</span>${s.dup?'<span class="dup-badge">DUP</span>':''}`;
+    list.appendChild(row);
+  });
+  showScreen('screenScan');
+  setTimeout(()=>document.getElementById('scanInput').focus(),100);
+  toast('Evento recuperado — '+okReal+' etiquetas','ok');
+}
+function descartarDraft(){ hideOv('ovRecuperar'); borrarDraft(); S._draft=null; }
+
+function showHistory(){
+  if(!db){ toast('Base de datos no disponible'); return; }
+  db.transaction('eventos','readonly').objectStore('eventos').getAll().onsuccess=e=>{
+    const evs=e.target.result.sort((a,b)=>b.id-a.id);
+    document.getElementById('histCount').textContent=evs.length;
+    const list=document.getElementById('histList'); list.innerHTML='';
+    if(!evs.length){ list.innerHTML='<div class="empty-state">No hay eventos registrados</div>'; return; }
+    evs.forEach(ev=>{
+      const c=document.createElement('div'); c.className='hist-card';
+      c.innerHTML=`<div class="hist-row"><span class="hist-logistica">${ev.logistica}</span><span class="hist-count">${ev.countOk}</span></div><div class="hist-date">${fd(ev.endTime)} ${ft(ev.endTime)} · ${ev.countDup} dup</div>`;
+      c.onclick=()=>{ S.lastEvento=ev; descargarCSV(); };
+      list.appendChild(c);
+    });
+    showScreen('screenHistory');
+  };
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('dateBadge').textContent=fd(new Date());
+  initDB();
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+});
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<audio id="audioErr" src="data:audio/wav;base64,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m5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5llZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZpuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmWVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWZlZmVmZWabmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZm5mbmZuZ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" preload="auto"></audio>
+</body>
+</html>
